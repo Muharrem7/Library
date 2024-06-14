@@ -7,6 +7,10 @@ import (
 	"strings"
 )
 
+func GetCities() [10]string {
+	return [10]string{"İstanbul", "Ankara", "İzmir", "Samsun", "Adana", "Edirne", "Elazığ", "Van", "Giresun", "Ordu"}
+}
+
 func DistrictEveryCity(userCity string, userDistrict string) error {
 
 	//var returnDistrict string
@@ -44,126 +48,6 @@ func DistrictEveryCity(userCity string, userDistrict string) error {
 	if !districtFound {
 		return errors.New("hiçbir şey bulamadık")
 	}
-
-	// TODO: switch case kalkacak
-
-	//switch cityText {
-	//case "İstanbul":
-	//	districts, exist := mapsOfCityDistricts[cityText]
-	//
-	//	if exist {
-	//		for _, district := range districts {
-	//			if strings.ToLower(districttext) == strings.ToLower(district) {
-	//				districtFound = true
-	//				break
-	//			}
-	//		}
-	//
-	//	}
-	//
-	//case "Ankara":
-	//	districts, exist := mapsOfCityDistricts[cityText]
-	//
-	//	if exist {
-	//		for _, district := range districts {
-	//			if strings.ToLower(districttext) == strings.ToLower(district) {
-	//				districtFound = true
-	//				break
-	//			}
-	//		}
-	//	}
-	//case "İzmir":
-	//	districts, exist := mapsOfCityDistricts[cityText]
-	//
-	//	if exist {
-	//		for _, district := range districts {
-	//			if strings.ToLower(districttext) == strings.ToLower(district) {
-	//				districtFound = true
-	//				break
-	//			}
-	//		}
-	//	}
-	//case "Samsun":
-	//	districts, exist := mapsOfCityDistricts[cityText]
-	//
-	//	if exist {
-	//		for _, district := range districts {
-	//			if strings.ToLower(districttext) == strings.ToLower(district) {
-	//				districtFound = true
-	//				break
-	//			}
-	//		}
-	//	}
-	//case "Adana":
-	//	districts, exist := mapsOfCityDistricts[cityText]
-	//
-	//	if exist {
-	//		for _, district := range districts {
-	//			if strings.ToLower(districttext) == strings.ToLower(district) {
-	//				districtFound = true
-	//				break
-	//			}
-	//		}
-	//	}
-	//case "Edirne":
-	//	districts, exist := mapsOfCityDistricts[cityText]
-	//
-	//	if exist {
-	//		for _, district := range districts {
-	//			if strings.ToLower(districttext) == strings.ToLower(district) {
-	//				districtFound = true
-	//				break
-	//			}
-	//		}
-	//	}
-	//case "Elazığ":
-	//	districts, exist := mapsOfCityDistricts[cityText]
-	//
-	//	if exist {
-	//		for _, district := range districts {
-	//			if strings.ToLower(districttext) == strings.ToLower(district) {
-	//				districtFound = true
-	//				break
-	//			}
-	//		}
-	//	}
-	//case "Van":
-	//	districts, exist := mapsOfCityDistricts[cityText]
-	//
-	//	if exist {
-	//		for _, district := range districts {
-	//			if strings.ToLower(districttext) == strings.ToLower(district) {
-	//				districtFound = true
-	//				break
-	//			}
-	//		}
-	//	}
-	//case "Giresun":
-	//	districts, exist := mapsOfCityDistricts[cityText]
-	//
-	//	if exist {
-	//		for _, district := range districts {
-	//			if strings.ToLower(districttext) == strings.ToLower(district) {
-	//				districtFound = true
-	//				break
-	//			}
-	//		}
-	//	}
-	//case "Ordu":
-	//	districts, exist := mapsOfCityDistricts[cityText]
-	//
-	//	if exist {
-	//		for _, district := range districts {
-	//			if strings.ToLower(districttext) == strings.ToLower(district) {
-	//				districtFound = true
-	//				break
-	//			}
-	//		}
-	//	}
-	//default:
-	//	return errors.New("hiçbir şey bulamadık")
-	//
-	//}
 
 	return nil
 }

@@ -11,11 +11,13 @@ import (
 
 var userIdCounter = 1
 
-func main() {
-	var users []usersPackage.UserInformations
+func process() {
+	// router oluşturulack her bir işlem directoryde yapılacak
+
+	var users []usersPackage.User
 	var books []bookPackage.BookInformation
 	var mapsOfUsersBook = make(map[string][]bookPackage.BookInformation)
-	var mapsOfBooksUser = make(map[string][]usersPackage.UserInformations)
+	var mapsOfBooksUser = make(map[string][]usersPackage.User)
 
 	//var mapsOfBooksUser = make(map[int][]usersPackage.UserInformations)
 	for {
@@ -28,10 +30,19 @@ func main() {
 		fmt.Println("\n --- Lütfen yapmak istediğiniz işlemi sayı ile belirtiniz ---")
 		fmt.Scan(&userProcess)
 
-		chooseUserProcess = validtyUserInputIsDigit(userProcess)
+		chooseUserProcess, err := strconv.Atoi(userProcess)
+		if err != nil {
+			fmt.Println("int değil")
+			continue
+		}
 
+		// http metodlarına bakılacak tiplerine göçre işlem yapılacak bunu araştır
 		switch chooseUserProcess {
+		// /user, POST
 		case 1:
+			// DATA request body den gelecek, marshall ve unmarshall json
+			// ilk validatsyon            // 400
+			// başarılı ise ekleyeveksin // 200
 			user := createNewUser()
 			if err := user.Valid(); err != nil {
 				fmt.Println("Lütfen tekrar deneyiniz.", err.Error())
@@ -105,14 +116,14 @@ func main() {
 
 }
 
-func validtyUserInputIsDigit(userInfo string) int {
-	value, err := strconv.Atoi(userInfo)
-	if err != nil {
-		fmt.Println("int değil")
-	}
-
-	return value
-}
+//	func validtyUserInputIsDigit(userInfo string) int {
+//		value, err := strconv.Atoi(userInfo)
+//		if err != nil {
+//			fmt.Println("int değil")
+//		}
+//
+//		return value
+//	}
 func validtyUserInputIsString(userInput string) {
 	for _, input := range userInput {
 		if unicode.IsDigit(input) {
@@ -122,13 +133,13 @@ func validtyUserInputIsString(userInput string) {
 
 }
 
-func createNewUser() usersPackage.UserInformations {
+func createNewUser() usersPackage.User {
 	var userName string
 	var userLastName string
 	var userIdentityNumber string
 	var userCity string
 	var userDistrict string
-	var user usersPackage.UserInformations
+	var user usersPackage.User
 
 	fmt.Println("\nLütfen eklemek istediğiniz kullancinin adini rakam olmadan giriniz: ")
 	fmt.Scan(&userName)
@@ -147,13 +158,13 @@ func createNewUser() usersPackage.UserInformations {
 
 	idCounter := strconv.Itoa(userIdCounter)
 
-	user = usersPackage.UserInformations{Id: idCounter, UserName: userName, UserLastName: userLastName, UserIdentityNumber: userIdentityNumber, UserAdress: usersPackage.UserAdressInformations{UserCity: userCity, UserDistrict: userDistrict}}
+	user = usersPackage.User{Id: idCounter, UserName: userName, UserLastName: userLastName, UserIdentityNumber: userIdentityNumber, UserAdress: usersPackage.UserAdress{UserCity: userCity, UserDistrict: userDistrict}}
 
 	return user
 
 }
 
-func PrintUsers(users []usersPackage.UserInformations) {
+func PrintUsers(users []usersPackage.User) {
 	for _, userInfo := range users {
 		fmt.Println(userInfo.GetUserInformations())
 	}
@@ -192,7 +203,7 @@ func PrintBook(book []bookPackage.BookInformation) {
 		fmt.Println(bookInfo.GetBookInformations())
 	}
 }
-func AssigneBookForUsers(Users []usersPackage.UserInformations, Books []bookPackage.BookInformation, mapsOfUsersBook map[string][]bookPackage.BookInformation, mapsOfBooksUser map[string][]usersPackage.UserInformations) (map[string][]bookPackage.BookInformation, map[string][]usersPackage.UserInformations) {
+func AssigneBookForUsers(Users []usersPackage.User, Books []bookPackage.BookInformation, mapsOfUsersBook map[string][]bookPackage.BookInformation, mapsOfBooksUser map[string][]usersPackage.User) (map[string][]bookPackage.BookInformation, map[string][]usersPackage.User) {
 
 	var userId string
 	var bookIsbn string
@@ -204,7 +215,7 @@ func AssigneBookForUsers(Users []usersPackage.UserInformations, Books []bookPack
 
 	// TODO User --> users yerleri değişecek
 
-	var foundUser usersPackage.UserInformations
+	var foundUser usersPackage.User
 	for _, user := range Users {
 		if user.Id == userId {
 			isFoundUser = true
