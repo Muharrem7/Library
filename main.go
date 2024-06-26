@@ -1,304 +1,278 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	bookPackage "library/Book_Information"
 	usersPackage "library/Users_Personel_Informations"
-	"strconv"
-	"strings"
-	"unicode"
+	"net/http"
 )
 
-var userIdCounter = 1
+var users []usersPackage.User
+var books []bookPackage.BookInformation
+var mapsOfUsersBook = make(map[int][]bookPackage.BookInformation)
+var mapsOfBooksUser = make(map[string][]usersPackage.User)
+var newUser usersPackage.User
+var newBook bookPackage.BookInformation
 
-func process() {
-	// router oluşturulack her bir işlem directoryde yapılacak
+var userIdCounter = 0
 
-	var users []usersPackage.User
-	var books []bookPackage.BookInformation
-	var mapsOfUsersBook = make(map[string][]bookPackage.BookInformation)
-	var mapsOfBooksUser = make(map[string][]usersPackage.User)
+// id ve isbn'e göre bilgileri getirsin.
+func main() {
+	http.HandleFunc("/user", userHandler)
+	http.HandleFunc("/users", usersHandler)
+	http.HandleFunc("/book", bookHandler)
+	http.HandleFunc("/books", booksHandler)
+	http.HandleFunc("/assign-book", assignBookHandler)
+	http.HandleFunc("/assigned-books", assignedBooksHandler)
+	http.HandleFunc("/assigned-users", assignedUsersHandler)
+	http.HandleFunc("/categories", categoriesHandler)
+	http.HandleFunc("/filter-categories", filterCategoriesHandler)
+	http.HandleFunc("/filter-names", filterNamesHandler)
+	http.HandleFunc("/filter-id", filterUserIdHandler)
+	http.HandleFunc("/filter-isbn", filterBookIsbnHandler)
 
-	//var mapsOfBooksUser = make(map[int][]usersPackage.UserInformations)
-	for {
-		var userProcess string
-		var chooseUserProcess int
-		fmt.Println("\n 1.Yeni kullanici ekleme \n 2.Tüm kullanicilarin listelenmesi \n 3.Yeni kitap ekleme  \n 4.Kitaplarin listelenmesi\n" +
-			" 5.Kullanicilara kitap atamasi  \n 6.Kullanicilarin hangi kitaplara sahip olduğunun listelenmesi  \n 7.Kitaplarin hangi kullanicilarda olduğu  \n" +
-			" 8.Kitaplarin kategoriye göre filtrelenmesi  \n 9.Kitaplarin girilen texte göre filtrelenmesi \n 0.Programın sonlandırılması")
+	fmt.Println("Listening on port 8080")
+	err := http.ListenAndServe(":8080", nil)
 
-		fmt.Println("\n --- Lütfen yapmak istediğiniz işlemi sayı ile belirtiniz ---")
-		fmt.Scan(&userProcess)
+	if err != nil {
+		fmt.Println("Error starting server:", err)
+	}
+}
 
-		chooseUserProcess, err := strconv.Atoi(userProcess)
+func userHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+
+		err := json.NewDecoder(r.Body).Decode(&newUser)
 		if err != nil {
-			fmt.Println("int değil")
-			continue
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
 		}
 
-		// http metodlarına bakılacak tiplerine göçre işlem yapılacak bunu araştır
-		switch chooseUserProcess {
-		// /user, POST
-		case 1:
-			// DATA request body den gelecek, marshall ve unmarshall json
-			// ilk validatsyon            // 400
-			// başarılı ise ekleyeveksin // 200
-			user := createNewUser()
-			if err := user.Valid(); err != nil {
-				fmt.Println("Lütfen tekrar deneyiniz.", err.Error())
-			} else {
-				users = append(users, user)
-				userIdCounter++
+		if err := newUser.Valid(); err != nil {
+			http.Error(w, "Invalid user data "+err.Error(), http.StatusBadRequest)
+			return
+		}
 
-				fmt.Println(users)
-			}
+		userIdCounter++
+		newUser.Id = userIdCounter
+		users = append(users, newUser)
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(newUser)
+		fmt.Println("User created successfully", newUser.GetUserInformations())
 
-		case 2:
-			if len(users) == 0 {
-				fmt.Println("Herhangi bir kullanici bulunmamaktadir önce kullanici oluşturunuz...")
-				continue
-			}
+	} else {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+func usersHandler(w http.ResponseWriter, r *http.Request) {
 
-			PrintUsers(users)
-		case 3:
-			book := createNewBook()
+	if r.Method == http.MethodGet {
+		w.WriteHeader(http.StatusOK)
+		err := json.NewEncoder(w).Encode(users)
+		if err != nil {
+			fmt.Println("Error encoding users:", err)
+		}
+	} else {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 
-			if err := book.Valid(); err != nil {
-				fmt.Println("Lütfen tekrar deneyiniz.", err.Error())
-			} else {
-				books = append(books, book)
-				fmt.Println(books)
-			}
+	}
 
-		case 4:
-			if len(books) == 0 {
-				fmt.Println("Herhangi bir kitap bulunmamaktadir önce kitap oluşturunuz...")
-				continue
-			}
-			PrintBook(books)
-		case 5:
-			mapsOfUsersBook, mapsOfBooksUser = AssigneBookForUsers(users, books, mapsOfUsersBook, mapsOfBooksUser)
-		case 6:
-			// TODO kitabı kullanıcıya eklemeke için yeni bir numara
-			if len(mapsOfUsersBook) == 0 {
-				fmt.Println("Atama Bulunamadı")
-				continue
-			} else {
-				for userId, assignedBook := range mapsOfUsersBook {
-					for _, book := range assignedBook {
-						fmt.Printf("\n %s id'li kullaniciya %s isbn'li %s isimli kitap atanmıştır.\n", userId, book.ISBN, book.BookName)
-					}
-				}
-			}
-		case 7:
+}
 
-			for bookIsbn, assignedUser := range mapsOfBooksUser {
-				for _, user := range assignedUser {
-					id, _ := strconv.Atoi(user.Id)
-					fmt.Printf("\n %s isbn'li kitabın atandığı kullanici id'si: %d", bookIsbn, id)
-				}
-			}
+func bookHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
 
-		case 8:
-			mapsOfCategory := make(map[string][]bookPackage.BookInformation)
-			categoryFilter(books, mapsOfCategory)
+		err := json.NewDecoder(r.Body).Decode(&newBook)
+		if err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
 
-		case 9:
-			mapsofName := make(map[string][]bookPackage.BookInformation)
-			nameFilter(books, mapsofName)
-
-		case 0:
+		if err := newBook.Valid(); err != nil {
+			http.Error(w, "Invalid book data "+err.Error(), http.StatusBadRequest)
 			return
 
 		}
 
-	}
+		books = append(books, newBook)
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(newBook)
+		fmt.Println("Book created successfully", newBook.GetBookInformations())
 
+	} else {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
-//	func validtyUserInputIsDigit(userInfo string) int {
-//		value, err := strconv.Atoi(userInfo)
-//		if err != nil {
-//			fmt.Println("int değil")
-//		}
-//
-//		return value
-//	}
-func validtyUserInputIsString(userInput string) {
-	for _, input := range userInput {
-		if unicode.IsDigit(input) {
-			fmt.Println("string değil")
+func booksHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		w.WriteHeader(http.StatusOK)
+		err := json.NewEncoder(w).Encode(books)
+		if err != nil {
+			http.Error(w, "Error encoding books: "+err.Error(), http.StatusInternalServerError)
 		}
-	}
+	} else {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 
-}
-
-func createNewUser() usersPackage.User {
-	var userName string
-	var userLastName string
-	var userIdentityNumber string
-	var userCity string
-	var userDistrict string
-	var user usersPackage.User
-
-	fmt.Println("\nLütfen eklemek istediğiniz kullancinin adini rakam olmadan giriniz: ")
-	fmt.Scan(&userName)
-
-	fmt.Println("Lütfen eklemek istediğiniz kullanicinin soyadini rakam olmadan giriniz: ")
-	fmt.Scan(&userLastName)
-
-	fmt.Println("Lütfen eklemek istediğiniz kullanicinin T.C no'sunu harf kullanmadan giriniz: ")
-	fmt.Scan(&userIdentityNumber)
-
-	fmt.Println("Lütfen eklemek istediğiniz kullanicinin şehrini rakam kullanmadan giriniz: ")
-	fmt.Scan(&userCity)
-
-	fmt.Println("Lütfen eklemek istediğiniz kullanicinin bulunduğu ilçeyi rakam kullanmadan giriniz: ")
-	fmt.Scan(&userDistrict)
-
-	idCounter := strconv.Itoa(userIdCounter)
-
-	user = usersPackage.User{Id: idCounter, UserName: userName, UserLastName: userLastName, UserIdentityNumber: userIdentityNumber, UserAdress: usersPackage.UserAdress{UserCity: userCity, UserDistrict: userDistrict}}
-
-	return user
-
-}
-
-func PrintUsers(users []usersPackage.User) {
-	for _, userInfo := range users {
-		fmt.Println(userInfo.GetUserInformations())
 	}
 }
 
-func createNewBook() bookPackage.BookInformation {
-	var bookIsbn string
-	var bookName string
-	var bookAuthor string
-	var bookCategory string
-	var bookPages string
-	var book bookPackage.BookInformation
+func assignBookHandler(w http.ResponseWriter, r *http.Request) {
 
-	fmt.Println("Lütfen eklemek istediğiniz kitabin 13 haneli ISBN numarasini harf kullanmadan giriniz: ")
-	fmt.Scan(&bookIsbn)
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 
-	fmt.Println("Lütfen eklemek istediğiniz kitabin adini giriniz: ")
-	fmt.Scan(&bookName)
+	var req bookPackage.AssignRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
 
-	fmt.Println("Lütfen eklemek istediğiniz kitabin yazarini rakam kullanmadan giriniz: ")
-	fmt.Scan(&bookAuthor)
+	foundUser, foundBook, err := bookPackage.AssignBook(users, books, req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
 
-	fmt.Println("Lütfen eklemek istediğiniz kitabin hangi kategoride olduğunu rakam kullanmadan giriniz: ")
-	fmt.Scan(&bookCategory)
+	mapsOfUsersBook[req.UserId] = append(mapsOfUsersBook[req.UserId], foundBook)
+	mapsOfBooksUser[req.BookIsbn] = append(mapsOfBooksUser[req.BookIsbn], foundUser)
 
-	fmt.Println("Lütfen eklemek istediğiniz kitabin kaç sayfa olduğunu harf kullanmadan giriniz: ")
-	fmt.Scan(&bookPages)
-
-	book = bookPackage.BookInformation{ISBN: bookIsbn, BookName: bookName, Author: bookAuthor, Category: bookCategory, Pages: bookPages}
-
-	return book
+	w.WriteHeader(http.StatusCreated)
+	err = json.NewEncoder(w).Encode("Book assigned successfully")
+	if err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
+	fmt.Println("Book assigned successfully to user", mapsOfUsersBook)
 }
-
-func PrintBook(book []bookPackage.BookInformation) {
-	for _, bookInfo := range book {
-		fmt.Println(bookInfo.GetBookInformations())
+func assignedBooksHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		w.WriteHeader(http.StatusOK)
+		err := json.NewEncoder(w).Encode(mapsOfUsersBook)
+		if err != nil {
+			http.Error(w, "Error assigned book", http.StatusInternalServerError)
+		}
+	} else {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }
-func AssigneBookForUsers(Users []usersPackage.User, Books []bookPackage.BookInformation, mapsOfUsersBook map[string][]bookPackage.BookInformation, mapsOfBooksUser map[string][]usersPackage.User) (map[string][]bookPackage.BookInformation, map[string][]usersPackage.User) {
-
-	var userId string
-	var bookIsbn string
-	var isFoundBook = false
-	var isFoundUser = false
-
-	fmt.Println("Kitap atamak istediğiniz kullanicinin ID'sini harf kullanmadan giriniz: ")
-	fmt.Scan(&userId)
-
-	// TODO User --> users yerleri değişecek
-
-	var foundUser usersPackage.User
-	for _, user := range Users {
-		if user.Id == userId {
-			isFoundUser = true
-			foundUser = user
+func assignedUsersHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		w.WriteHeader(http.StatusOK)
+		err := json.NewEncoder(w).Encode(mapsOfBooksUser)
+		if err != nil {
+			http.Error(w, "Error assigned user", http.StatusInternalServerError)
 
 		}
-
+	} else {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
-	if isFoundUser == false {
-		fmt.Println("bulunamadı")
-	}
-
-	fmt.Println("Lütfen atamak istediğiniz kitabin ISBN numarasini harf kullanmadan giriniz: ")
-	fmt.Scan(&bookIsbn)
-
-	var foundBook bookPackage.BookInformation
-	for _, book := range Books {
-		if book.ISBN == bookIsbn {
-			isFoundBook = true
-			foundBook = book
+}
+func categoriesHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		w.WriteHeader(http.StatusOK)
+		err := json.NewEncoder(w).Encode(bookPackage.GetCategories()) // json dönecek
+		if err != nil {
+			http.Error(w, "Error encoding categories: "+err.Error(), http.StatusInternalServerError)
 		}
-
 	}
-	if isFoundBook == false {
-		fmt.Println("bulunamadı")
-	}
-
-	if isFoundUser == true && isFoundBook == true {
-		mapsOfUsersBook[userId] = append(mapsOfUsersBook[userId], foundBook)
-		mapsOfBooksUser[bookIsbn] = append(mapsOfBooksUser[bookIsbn], foundUser)
-	}
-
-	return mapsOfUsersBook, mapsOfBooksUser
 }
 
-// TODO returnlere bak
-func categoryFilter(Books []bookPackage.BookInformation, mapsOfCategory map[string][]bookPackage.BookInformation) {
-	var userInput string
-	var isFoundBook = false
-
-	category := bookPackage.GetCategories()
-
-	fmt.Println(category)
-
-	fmt.Println("Lütfen aradığınız kategoriyi rakam kullanmadan yazınız:")
-	fmt.Scan(&userInput)
-	validtyUserInputIsString(userInput)
-
-	for _, book := range Books {
-
-		if strings.ToLower(book.Category) == strings.ToLower(userInput) {
-			isFoundBook = true
-			mapsOfCategory[book.Category] = append(mapsOfCategory[book.Category], book)
-			fmt.Println(mapsOfCategory)
-		}
+func filterCategoriesHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
 	}
 
-	if !isFoundBook {
-		fmt.Printf("%s Kategorisinde kitap bulunamadı lütfen tekrar deneyiniz.", userInput)
+	var req bookPackage.CategoryRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
 
+	mapsOfCategory, err := bookPackage.CategoryFilter(books, req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+	}
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(mapsOfCategory)
+	if err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
 	}
 
 }
 
-// TODO returnlere bak
-func nameFilter(Book []bookPackage.BookInformation, mapsOfName map[string][]bookPackage.BookInformation) {
-	var userInput string
-	var isFoundBook = false
-
-	fmt.Println("Lütfen aradığınız kitabin adini rakam kullanmadan yazınız:")
-	fmt.Scan(&userInput)
-	validtyUserInputIsString(userInput)
-
-	for _, book := range Book {
-		if strings.ToLower(book.BookName) == strings.ToLower(userInput) {
-			isFoundBook = true
-			mapsOfName[book.BookName] = append(mapsOfName[book.BookName], book)
-			fmt.Println(mapsOfName)
-
-		}
+func filterNamesHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
 	}
-	if !isFoundBook {
-		fmt.Println("Eşleşme olmadığı için tekrardan deneyiniz.")
+
+	var req bookPackage.NameRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	mapsOfName, err := bookPackage.NameFilter(books, req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+	}
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(mapsOfName)
+	if err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
+}
+
+func filterUserIdHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+
+	var req bookPackage.IdRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	}
+
+	mapsOfUserId, err := bookPackage.IdFilter(users, req)
+
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(mapsOfUserId)
+	if err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
+
+}
+
+func filterBookIsbnHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+
+	var req bookPackage.IsbnRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	}
+
+	mapsOfBookIsbn, err := bookPackage.IsbnFilter(books, req)
+
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(mapsOfBookIsbn)
+	if err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
 	}
 
 }
