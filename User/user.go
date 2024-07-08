@@ -67,13 +67,12 @@ func isEmpty(userName string, userLastName string, userCity string, userDistrict
 
 func (user *User) Valid() error {
 
-	// ismi değişexek
 	err := isEmpty(user.UserName, user.UserLastName, user.UserAdress.UserCity, user.UserAdress.UserDistrict)
 	if err != nil {
 		return err
 	}
 
-	cities := constants.GetCities() // citylerin listesi sadece constansts tan gelmeli, kullanmayacağın bir şeyi önceden çağırmazsın
+	cities := constants.GetCities()
 
 	for index, _ := range user.UserName {
 		if _, err := strconv.Atoi(string(user.UserName[index])); err == nil {
@@ -131,4 +130,31 @@ func (user *User) Valid() error {
 	}
 
 	return nil
+}
+
+type IdRequest struct {
+	Id int `json:"id"`
+}
+
+func IdFilter(users []User, req IdRequest) (map[int][]User, error) {
+
+	UserIdMap := make(map[int][]User)
+	isFoundUserId := false
+
+	for _, user := range users {
+		if user.Id == req.Id {
+			isFoundUserId = true
+			UserIdMap[user.Id] = append(UserIdMap[user.Id], user)
+
+		}
+	}
+
+	if !isFoundUserId {
+		return UserIdMap, errors.New("user not found")
+	}
+
+	fmt.Println(UserIdMap)
+
+	return UserIdMap, nil
+
 }

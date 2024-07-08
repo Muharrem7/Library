@@ -3,40 +3,41 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	bookPackage "library/Book_Information"
-	usersPackage "library/Users_Personel_Informations"
+	bookPackage "library/Book"
+	usersPackage "library/User"
 	"net/http"
 )
 
 var users []usersPackage.User
-var books []bookPackage.BookInformation
-var mapsOfUsersBook = make(map[int][]bookPackage.BookInformation)
-var mapsOfBooksUser = make(map[string][]usersPackage.User)
+var books []bookPackage.Book
+var usersMap = make(map[int][]bookPackage.Book)
+var booksMap = make(map[string][]usersPackage.User)
 var newUser usersPackage.User
-var newBook bookPackage.BookInformation
+var newBook bookPackage.Book
 
 var userIdCounter = 0
 
 // id ve isbn'e göre bilgileri getirsin.
 func main() {
 	http.HandleFunc("/user", userHandler)
-	http.HandleFunc("/users", usersHandler)
+	http.HandleFunc("/user/users", usersHandler)
 	http.HandleFunc("/book", bookHandler)
-	http.HandleFunc("/books", booksHandler)
-	http.HandleFunc("/assign-book", assignBookHandler)
-	http.HandleFunc("/assigned-books", assignedBooksHandler)
-	http.HandleFunc("/assigned-users", assignedUsersHandler)
+	http.HandleFunc("/book/books", booksHandler)
+	http.HandleFunc("/book/assign", assigneBookHandler)
+	http.HandleFunc("/book/assigned", assignedBooksHandler)
+	http.HandleFunc("/user/assigned", assignedUsersHandler)
 	http.HandleFunc("/categories", categoriesHandler)
-	http.HandleFunc("/filter-categories", filterCategoriesHandler)
-	http.HandleFunc("/filter-names", filterNamesHandler)
-	http.HandleFunc("/filter-id", filterUserIdHandler)
-	http.HandleFunc("/filter-isbn", filterBookIsbnHandler)
+	http.HandleFunc("/filter/categories", filterCategoriesHandler)
+	http.HandleFunc("/filter/names", filterNamesHandler)
+	http.HandleFunc("/filter/id", filterIdHandler)
+	http.HandleFunc("/filter/isbn", filterIsbnHandler)
 
 	fmt.Println("Listening on port 8080")
 	err := http.ListenAndServe(":8080", nil)
 
 	if err != nil {
 		fmt.Println("Error starting server:", err)
+
 	}
 }
 
@@ -118,7 +119,7 @@ func booksHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func assignBookHandler(w http.ResponseWriter, r *http.Request) {
+func assigneBookHandler(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -138,8 +139,8 @@ func assignBookHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mapsOfUsersBook[req.UserId] = append(mapsOfUsersBook[req.UserId], foundBook)
-	mapsOfBooksUser[req.BookIsbn] = append(mapsOfBooksUser[req.BookIsbn], foundUser)
+	usersMap[req.UserId] = append(usersMap[req.UserId], foundBook)
+	booksMap[req.BookIsbn] = append(booksMap[req.BookIsbn], foundUser)
 
 	w.WriteHeader(http.StatusCreated)
 	err = json.NewEncoder(w).Encode("Book assigned successfully")
@@ -147,12 +148,12 @@ func assignBookHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 		return
 	}
-	fmt.Println("Book assigned successfully to user", mapsOfUsersBook)
+	fmt.Println("Book assigned successfully to user", usersMap)
 }
 func assignedBooksHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		w.WriteHeader(http.StatusOK)
-		err := json.NewEncoder(w).Encode(mapsOfUsersBook)
+		err := json.NewEncoder(w).Encode(usersMap)
 		if err != nil {
 			http.Error(w, "Error assigned book", http.StatusInternalServerError)
 		}
@@ -163,7 +164,7 @@ func assignedBooksHandler(w http.ResponseWriter, r *http.Request) {
 func assignedUsersHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		w.WriteHeader(http.StatusOK)
-		err := json.NewEncoder(w).Encode(mapsOfBooksUser)
+		err := json.NewEncoder(w).Encode(booksMap)
 		if err != nil {
 			http.Error(w, "Error assigned user", http.StatusInternalServerError)
 
@@ -195,12 +196,12 @@ func filterCategoriesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mapsOfCategory, err := bookPackage.CategoryFilter(books, req)
+	categoriesMap, err := bookPackage.CategoryFilter(books, req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 	}
 	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(mapsOfCategory)
+	err = json.NewEncoder(w).Encode(categoriesMap)
 	if err != nil {
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 		return
@@ -221,33 +222,35 @@ func filterNamesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mapsOfName, err := bookPackage.NameFilter(books, req)
+	namesMap, err := bookPackage.NameFilter(books, req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 	}
 	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(mapsOfName)
+	err = json.NewEncoder(w).Encode(namesMap)
 	if err != nil {
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 		return
 	}
 }
 
-func filterUserIdHandler(w http.ResponseWriter, r *http.Request) {
+func filterIdHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
 	}
 
-	var req bookPackage.IdRequest
+	var req usersPackage.IdRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
 	}
 
-	mapsOfUserId, err := bookPackage.IdFilter(users, req)
+	UserIdMap, err := usersPackage.IdFilter(users, req)
 
 	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(mapsOfUserId)
+	err = json.NewEncoder(w).Encode(UserIdMap)
 	if err != nil {
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 		return
@@ -255,7 +258,7 @@ func filterUserIdHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func filterBookIsbnHandler(w http.ResponseWriter, r *http.Request) {
+func filterIsbnHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
@@ -266,10 +269,10 @@ func filterBookIsbnHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 	}
 
-	mapsOfBookIsbn, err := bookPackage.IsbnFilter(books, req)
+	BookIsbnMap, err := bookPackage.IsbnFilter(books, req)
 
 	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(mapsOfBookIsbn)
+	err = json.NewEncoder(w).Encode(BookIsbnMap)
 	if err != nil {
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 		return

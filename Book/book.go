@@ -4,12 +4,12 @@ package Book
 import (
 	"errors"
 	"fmt"
-	Users "library/Users_Personel_Informations"
+	Users "library/User"
 	"strconv"
 	"strings"
 )
 
-type BookInformation struct {
+type Book struct {
 	ISBN      string // TODO string
 	BookName  string // JSON ANNOTATION KULLANILACAK
 	Author    string
@@ -17,8 +17,8 @@ type BookInformation struct {
 	PageCount int // page count inter
 }
 
-func NewBookInformation(isbn string, bookName string, author string, category string, pageCount int) BookInformation {
-	book := BookInformation{
+func NewBookInformation(isbn string, bookName string, author string, category string, pageCount int) Book {
+	book := Book{
 		ISBN:      isbn,
 		BookName:  bookName,
 		Author:    author,
@@ -29,7 +29,7 @@ func NewBookInformation(isbn string, bookName string, author string, category st
 	return book
 }
 
-func (book BookInformation) GetBookInformations() string {
+func (book Book) GetBookInformations() string {
 
 	return fmt.Sprintf("\n ISBN: %s  Book Name: %s  Author: %s  Category: %s  Pages: %d",
 		book.ISBN,
@@ -65,7 +65,7 @@ func isEmpty(isbn string, bookName string, author string, category string, pageC
 	return nil
 }
 
-func (book *BookInformation) Valid() error {
+func (book *Book) Valid() error {
 
 	err := isEmpty(book.ISBN, book.BookName, book.Author, book.Category, book.PageCount)
 	if err != nil {
@@ -129,16 +129,16 @@ type AssignRequest struct {
 	BookIsbn string `json:"bookIsbn"`
 }
 
-func AssignBook(users []Users.User, books []BookInformation, req AssignRequest) (Users.User, BookInformation, error) {
+func AssignBook(users []Users.User, books []Book, req AssignRequest) (Users.User, Book, error) {
 	var foundUser Users.User
-	var foundBook BookInformation
+	var foundBook Book
 	isUserFound, isBookFound := false, false
 
 	for _, user := range users {
 		if user.Id == req.UserId {
 			foundUser = user
 			isUserFound = true
-			break
+			continue
 		}
 	}
 
@@ -146,12 +146,12 @@ func AssignBook(users []Users.User, books []BookInformation, req AssignRequest) 
 		if book.ISBN == req.BookIsbn {
 			foundBook = book
 			isBookFound = true
-			break
+			continue
 		}
 	}
 
 	if !isUserFound || !isBookFound {
-		return Users.User{}, BookInformation{}, errors.New("user or book not found")
+		return Users.User{}, Book{}, errors.New("user or book not found")
 	}
 
 	return foundUser, foundBook, nil
@@ -161,16 +161,16 @@ type CategoryRequest struct {
 	Category string `json:"category"`
 }
 
-func CategoryFilter(books []BookInformation, req CategoryRequest) (map[string][]BookInformation, error) {
+func CategoryFilter(books []Book, req CategoryRequest) (map[string][]Book, error) {
 	category := strings.ToLower(req.Category)
 	isFoundCategory := false
-	mapsOfCategory := make(map[string][]BookInformation)
+	mapsOfCategory := make(map[string][]Book)
 
 	for _, book := range books {
 		if strings.ToLower(book.Category) == strings.ToLower(category) {
 			isFoundCategory = true
 			mapsOfCategory[book.Category] = append(mapsOfCategory[book.Category], book)
-			break
+			continue
 		}
 	}
 
@@ -185,17 +185,17 @@ type NameRequest struct {
 	Name string `json:"name"`
 }
 
-func NameFilter(books []BookInformation, req NameRequest) (map[string][]BookInformation, error) {
+func NameFilter(books []Book, req NameRequest) (map[string][]Book, error) {
 
 	name := strings.ToLower(req.Name)
 	isFoundName := false
-	mapsOfName := make(map[string][]BookInformation)
+	mapsOfName := make(map[string][]Book)
 
 	for _, book := range books {
 		if strings.ToLower(book.BookName) == strings.ToLower(name) {
 			isFoundName = true
 			mapsOfName[book.BookName] = append(mapsOfName[book.BookName], book)
-			break
+			continue
 		}
 	}
 
@@ -207,43 +207,18 @@ func NameFilter(books []BookInformation, req NameRequest) (map[string][]BookInfo
 
 }
 
-type IdRequest struct {
-	Id int `json:"id"`
-}
-
-func IdFilter(users []Users.User, req IdRequest) (map[int][]Users.User, error) {
-
-	mapsOfUserId := make(map[int][]Users.User)
-	isFoundUserId := false
-
-	for _, user := range users {
-		if user.Id == req.Id {
-			isFoundUserId = true
-			mapsOfUserId[user.Id] = append(mapsOfUserId[user.Id], user)
-			break
-		}
-	}
-
-	if !isFoundUserId {
-		return mapsOfUserId, errors.New("user not found")
-	}
-
-	return mapsOfUserId, nil
-
-}
-
 type IsbnRequest struct {
 	Isbn string `json:"isbn"`
 }
 
-func IsbnFilter(books []BookInformation, req IsbnRequest) (map[string][]BookInformation, error) {
-	mapsOfBookIsbn := make(map[string][]BookInformation)
+func IsbnFilter(books []Book, req IsbnRequest) (map[string][]Book, error) {
+	mapsOfBookIsbn := make(map[string][]Book)
 	isFoundBookIsbn := false
 	for _, book := range books {
 		if book.ISBN == req.Isbn {
 			isFoundBookIsbn = true
 			mapsOfBookIsbn[book.ISBN] = append(mapsOfBookIsbn[book.ISBN], book)
-			break
+			continue
 		}
 	}
 
