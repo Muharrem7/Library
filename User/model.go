@@ -3,6 +3,7 @@ package User
 import (
 	"errors"
 	"strconv"
+	"strings"
 )
 
 // TODO: buraya structlar gelecek
@@ -32,6 +33,10 @@ type IdRequest struct {
 type Assignments struct {
 	UserId int `json:"userId"`
 	BookId int `json:"bookId"`
+}
+type ErrorResponse struct {
+	ErrorType string `json:"error type"`
+	Error     string `json:"error"`
 }
 
 var citiesAndDistricts = map[string]CityInfo{
@@ -86,10 +91,37 @@ var citiesAndDistricts = map[string]CityInfo{
 		Districts: []string{"Altınordu", "Akkuş", "Çamaş", "Çaybaşı", "Gölköy", "Perşembe", "Kabataş", "Kabadüz", "Kumru", "Ünye"},
 	},
 }
+
+func IsBlank(s string) bool {
+	return len(strings.TrimSpace(s)) == 0
+}
+
 var CityId int
 var DistrictId int
 
 func (newUser *User) Valid() error {
+	if err := newUser.ValidateUserName(); err != nil {
+		return err
+	}
+	if err := newUser.ValidateUserLastName(); err != nil {
+		return err
+	}
+
+	if err := newUser.ValidateUserIdentityNumber(); err != nil {
+		return err
+	}
+
+	if err := newUser.ValidateUserAdress(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (newUser *User) ValidateUserName() error {
+
+	if IsBlank(newUser.UserName) == true {
+		return errors.New("blank user name")
+	}
 
 	for index, _ := range newUser.UserName {
 		if _, err := strconv.Atoi(string(newUser.UserName[index])); err == nil {
@@ -97,11 +129,28 @@ func (newUser *User) Valid() error {
 		}
 	}
 
+	return nil
+}
+func (newUser *User) ValidateUserLastName() error {
+
+	if IsBlank(newUser.UserLastName) == true {
+		return errors.New("blank user last name")
+	}
+
 	for _, digit := range newUser.UserLastName {
 		if _, err := strconv.Atoi(string(digit)); err == nil {
 			return errors.New("lastname error,cannot contain a number")
 		}
 	}
+
+	return nil
+
+}
+func (newUser *User) ValidateUserIdentityNumber() error {
+	if IsBlank(newUser.UserIdentityNumber) == true {
+		return errors.New("blank user identity number")
+	}
+
 	if len(newUser.UserIdentityNumber) == 11 {
 
 		for index, _ := range newUser.UserIdentityNumber {
@@ -111,6 +160,22 @@ func (newUser *User) Valid() error {
 		}
 	} else {
 		return errors.New("T.C must 11 characters")
+	}
+
+	return nil
+
+}
+
+func (newUser *User) ValidateUserAdress() error {
+
+	if IsBlank(newUser.UserAdress.UserCity) {
+		return errors.New("blank user city")
+	}
+	if IsBlank(newUser.UserAdress.UserDistrict) {
+		return errors.New("blank user district")
+	}
+	if IsBlank(newUser.UserAdress.UserAdressDescription) {
+		return errors.New("blank user adress description")
 	}
 
 	for _, digit := range newUser.UserAdress.UserCity {
@@ -146,4 +211,5 @@ func (newUser *User) Valid() error {
 	}
 
 	return nil
+
 }

@@ -43,7 +43,8 @@ func (us *UserRepository) InsertUser(user User) error {
 func (us *UserRepository) GetUsers() ([]User, error) {
 	rows, err := us.db.Query("SELECT * FROM users ORDER BY created_at DESC")
 	if err != nil {
-		fmt.Errorf("Bir hata oluştu.", err)
+		return nil, fmt.Errorf("Error while getting users", err)
+
 	}
 	defer rows.Close()
 
@@ -52,11 +53,10 @@ func (us *UserRepository) GetUsers() ([]User, error) {
 		var user User
 		err := rows.Scan(&user.UserId, &user.UserName, &user.UserLastName, &user.UserIdentityNumber, &user.UserAdress.UserCity, &user.UserAdress.UserDistrict, &user.UserAdress.UserAdressDescription, &user.UserCreatedAt)
 		if err != nil {
-			panic(err.Error())
+			return nil, fmt.Errorf("Error while scaning users %v", err)
 		}
 		users = append(users, user)
 	}
-
 	return users, nil
 }
 
@@ -98,8 +98,8 @@ func (us *UserRepository) GetAssignedUser() ([]Assignments, error) {
 	}
 	return users, nil
 }
-func (us *UserRepository) GetUserById(req IdRequest) ([]User, error) {
-	id := req.UserId
+func (us *UserRepository) GetUserById(req int) ([]User, error) {
+	id := req
 	rows, err := us.db.Query("SELECT * FROM users WHERE id = ?", id)
 	if err != nil {
 		return nil, fmt.Errorf("Error while querying user: %v", err)

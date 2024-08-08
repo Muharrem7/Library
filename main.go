@@ -8,7 +8,13 @@ import (
 	bookPackage "library/Book"
 	usersPackage "library/User"
 	"net/http"
+	"strconv"
 )
+
+// TODO boş geçemez = OK
+//TODO  düzgün insert yapılmadıysa cevap dönmesin = OK
+// TODO endpoint isimlerini düzelt
+// TODO kategorlileri validasyon için kodda tut = OK
 
 var newUser usersPackage.User
 var newBook bookPackage.Book
@@ -35,17 +41,18 @@ func DbConnect() *sql.DB {
 func main() {
 
 	http.HandleFunc("/user", insertUser)
-	http.HandleFunc("/user/users", getUsers)
+	http.HandleFunc("/users", getUsers)
+	http.HandleFunc("/users/", getUserById)            // TODO /users/{id} = OK
+	http.HandleFunc("/users/assign", getAssignedUsers) // TODO birde bir kitabı aynı kullanıcıya bir daha ataymazsın onu kontrol et. ok // users/{id}/books
+
 	http.HandleFunc("/book", insertBook)
-	http.HandleFunc("/book/books", getBooks)
-	http.HandleFunc("/book/assign", insertAssign)
-	http.HandleFunc("/book/assigned", getAssignedBooks) // TODO book id ye göre filtreke, user id leri döndür. ok
-	http.HandleFunc("/user/assigned", getAssignedUsers) // TODO birde bir kitabı aynı kullanıcıya bir daha ataymazsın onu kontrol et. ok
-	http.HandleFunc("/book/categories", getCategories)
-	http.HandleFunc("/book/categories/book-category", getBookByCategories)
-	http.HandleFunc("/book/book-name", getBookByBookName)
-	http.HandleFunc("/user/{id}", getUserById)
-	http.HandleFunc("/book/isbn", getBookByIsbn)
+	http.HandleFunc("/books", getBooks)
+	http.HandleFunc("/books/assign", insertAssign)
+	http.HandleFunc("/books/name", getBookByBookName)          //TODO buna gerek yok, /books a taşı URL Parameter
+	http.HandleFunc("/books/isbn", getBookByIsbn)              //TODO  GET /book/{isbn} --> /books/1204 = OK
+	http.HandleFunc("/books/categories", getCategories)        // TODO /books/categories = OK
+	http.HandleFunc("/books/categories/", getBookByCategories) // TODO buna gerek yok, /books a taşı URL Parameter, TODO books olacak /books?category=roman  = OK
+	http.HandleFunc("/books/assigned", getAssignedBooks)       // TODO book id ye göre filtreke, user id leri döndür. ok,        books/{id}/users
 
 	fmt.Println("Listening on port 8080")
 	err := http.ListenAndServe(":8080", nil)
@@ -57,43 +64,42 @@ func main() {
 func insertUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 
-		// TODO: user address Description eklenecek
 		err := json.NewDecoder(r.Body).Decode(&newUser)
 		if err != nil {
-			http.Error(w, "Invalid request body:"+err.Error(), http.StatusBadRequest)
+			errorMessage := usersPackage.ErrorResponse{ErrorType: "Invalid request Body", Error: err.Error()}
+			json.NewEncoder(w).Encode(errorMessage)
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
 		if err := newUser.Valid(); err != nil {
-			http.Error(w, "Invalid user data:"+err.Error(), http.StatusBadRequest)
+			errorMessage := usersPackage.ErrorResponse{ErrorType: "Validation error", Error: err.Error()}
+			json.NewEncoder(w).Encode(errorMessage)
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-
-		//city := usersPackage.CityRequest{City: newUser.UserAdress.UserCity}
-		//district := usersPackage.DistrictRequest{District: newUser.UserAdress.UserDistrict}
 
 		userRepo := usersPackage.NewUserRepository(DbConnect())
 		userService := usersPackage.NewUserService(*userRepo)
-		//cityId, err := userService.GetCities(city)
-		if err != nil {
-			http.Error(w, "Error inserting new user: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-		//districtId, err := userService.GetDistricts(district)
-		if err != nil {
-			http.Error(w, "Error inserting new user: "+err.Error(), http.StatusInternalServerError)
-			panic(err)
-		}
-
 		err = userService.InsertUser(newUser)
 		if err != nil {
-			http.Error(w, "Error inserting new user: "+err.Error(), http.StatusInternalServerError)
+			errorMessage := usersPackage.ErrorResponse{ErrorType: "Error while inserting new user", Error: err.Error()}
+			json.NewEncoder(w).Encode(errorMessage)
+			w.WriteHeader(http.StatusBadRequest)
 			return
+		} else {
+			err = json.NewEncoder(w).Encode(newUser)
+			if err != nil {
+				errorMessage := usersPackage.ErrorResponse{ErrorType: "Error while encoding new user", Error: err.Error()}
+				json.NewEncoder(w).Encode(errorMessage)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			w.WriteHeader(http.StatusCreated)
 		}
-		json.NewEncoder(w).Encode(newUser)
-		w.WriteHeader(http.StatusCreated)
 	} else {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
 	}
 }
 
@@ -104,49 +110,72 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 		userListService := usersPackage.NewUserService(*userList)
 		users, err := userListService.GetUsers()
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			errorMessage := usersPackage.ErrorResponse{ErrorType: "Error while getting users", Error: err.Error()}
+			json.NewEncoder(w).Encode(errorMessage)
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		err = json.NewEncoder(w).Encode(users)
 		if err != nil {
-			http.Error(w, "Error encoding users: "+err.Error(), http.StatusInternalServerError)
+			errorMessage := usersPackage.ErrorResponse{ErrorType: "Error while encoding users", Error: err.Error()}
+			json.NewEncoder(w).Encode(errorMessage)
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
 
 	} else {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
 	}
 }
 
 func insertBook(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode("Method not allowed")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
 	}
 	err := json.NewDecoder(r.Body).Decode(&newBook)
 	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		errorMessage := bookPackage.ErrorResponse{ErrorType: "Invalid request Body", Error: err.Error()}
+		json.NewEncoder(w).Encode(errorMessage)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	if err := newBook.Valid(); err != nil {
-		http.Error(w, "Invalid book data "+err.Error(), http.StatusBadRequest)
+		errorMessage := bookPackage.ErrorResponse{ErrorType: "Validation error", Error: err.Error()}
+		json.NewEncoder(w).Encode(errorMessage)
+		w.WriteHeader(http.StatusBadRequest)
 		return
-
 	}
+
 	category := bookPackage.CategoryRequest{Category: newBook.Category}
 	bookRepo := bookPackage.NewBookRepository(DbConnect())
 	bookRepoService := bookPackage.NewBookService(*bookRepo)
-	categoryId, err := bookRepoService.GetCategory(category) // TODO: istersen constant çek,
+	categoryId, err := bookRepoService.GetCategory(category) // TODO: istersen constant çek = OK
 	if err != nil {
-		http.Error(w, "Error inserting new book: "+err.Error(), http.StatusInternalServerError)
+		errorMesage := bookPackage.ErrorResponse{ErrorType: "Error while getting category", Error: err.Error()}
+		json.NewEncoder(w).Encode(errorMesage)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+
 	}
 	err = bookRepoService.InsertBook(newBook, categoryId)
 	if err != nil {
-		http.Error(w, "Error inserting new book: "+err.Error(), http.StatusBadRequest)
+		errorMessage := bookPackage.ErrorResponse{ErrorType: "Error while inserting book", Error: err.Error()}
+		json.NewEncoder(w).Encode(errorMessage)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	json.NewEncoder(w).Encode(newBook)
+	err = json.NewEncoder(w).Encode(newBook)
+	if err != nil {
+		errorMessage := bookPackage.ErrorResponse{ErrorType: "Error while encoding new book", Error: err.Error()}
+		json.NewEncoder(w).Encode(errorMessage)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	w.WriteHeader(http.StatusCreated)
 }
 
@@ -156,17 +185,26 @@ func getBooks(w http.ResponseWriter, r *http.Request) {
 		bookListService := bookPackage.NewBookService(*bookList)
 		books, err := bookListService.GetBooks()
 		if err != nil {
-			http.Error(w, "Error selecting books", http.StatusInternalServerError)
-			return // TODO error döndüğü zaman nolacak bir test edilmeli?
+			errorMessage := bookPackage.ErrorResponse{ErrorType: "Error while getting books", Error: err.Error()}
+			json.NewEncoder(w).Encode(errorMessage)
+			w.WriteHeader(http.StatusBadRequest)
+			return
 		}
 		err = json.NewEncoder(w).Encode(books)
-		w.WriteHeader(http.StatusOK)
 		if err != nil {
-			http.Error(w, "Error encoding books: "+err.Error(), http.StatusInternalServerError)
+			errorMessage := bookPackage.ErrorResponse{ErrorType: "Error while encoding books", Error: err.Error()}
+			json.NewEncoder(w).Encode(errorMessage)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		} else {
+			w.WriteHeader(http.StatusOK)
 		}
-	} else {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 
+	} else {
+
+		json.NewEncoder(w).Encode("Method not allowed")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
 	}
 }
 
@@ -180,7 +218,9 @@ func insertAssign(w http.ResponseWriter, r *http.Request) {
 	var req bookPackage.AssignRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		errorMessage := bookPackage.ErrorResponse{ErrorType: "Invalid request Body", Error: err.Error()}
+		json.NewEncoder(w).Encode(errorMessage)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -191,14 +231,20 @@ func insertAssign(w http.ResponseWriter, r *http.Request) {
 	bookIdService := bookPackage.NewBookService(*bookIdRepo)
 	bookId, err := bookIdService.GetBookIdById(bookIdReq)
 	if err != nil {
-		http.Error(w, "Error while get book id"+err.Error(), http.StatusInternalServerError)
+		errorMessage := bookPackage.ErrorResponse{ErrorType: "Error while getting bookId", Error: err.Error()}
+		json.NewEncoder(w).Encode(errorMessage)
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 
 	userIdRepo := usersPackage.NewUserRepository(DbConnect())
 	userIdService := usersPackage.NewUserService(*userIdRepo)
 	userId, err := userIdService.GetUserIdById(userIdReq)
 	if err != nil {
-		http.Error(w, "Error while get user id"+err.Error(), http.StatusInternalServerError)
+		errorMessage := usersPackage.ErrorResponse{ErrorType: "Error while getting userId", Error: err.Error()}
+		json.NewEncoder(w).Encode(errorMessage)
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 	if userId == 0 || bookId == 0 {
 		http.Error(w, "Error while get user/book id", http.StatusInternalServerError)
@@ -209,11 +255,20 @@ func insertAssign(w http.ResponseWriter, r *http.Request) {
 	assignRepoService := bookPackage.NewBookService(*assignRepo)
 	err = assignRepoService.InsertAssigne(userId, bookId)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		errorMessage := bookPackage.ErrorResponse{ErrorType: "Error while assigning book", Error: err.Error()}
+		json.NewEncoder(w).Encode(errorMessage)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode("Book assigned successfully")
+	if err != nil {
+		errorMessage := bookPackage.ErrorResponse{ErrorType: "Error while encode respond event", Error: err.Error()}
+		json.NewEncoder(w).Encode(errorMessage)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
-	err = json.NewEncoder(w).Encode("Book assigned successfully")
 }
 
 func getAssignedBooks(w http.ResponseWriter, r *http.Request) {
@@ -223,13 +278,21 @@ func getAssignedBooks(w http.ResponseWriter, r *http.Request) {
 	}
 	booksRepo := bookPackage.NewBookRepository(DbConnect())
 	assignedRepo := bookPackage.NewBookService(*booksRepo)
-	id, err := assignedRepo.GetAssignedBook()
+	ids, err := assignedRepo.GetAssignedBook()
 	if err != nil {
-		http.Error(w, "Error assigned book", http.StatusInternalServerError)
+		errorMessage := bookPackage.ErrorResponse{ErrorType: "Error while getting assigned books", Error: err.Error()}
+		json.NewEncoder(w).Encode(errorMessage)
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
-	json.NewEncoder(w).Encode(id)
+	err = json.NewEncoder(w).Encode(ids)
+	if err != nil {
+		errorMessage := bookPackage.ErrorResponse{ErrorType: "Error while encode assigned books", Error: err.Error()}
+		json.NewEncoder(w).Encode(errorMessage)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
-
 }
 
 func getAssignedUsers(w http.ResponseWriter, r *http.Request) {
@@ -238,11 +301,20 @@ func getAssignedUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	userRepo := usersPackage.NewUserRepository(DbConnect())
 	assignedRepo := usersPackage.NewUserService(*userRepo)
-	usersId, err := assignedRepo.GetAssignedUser()
+	ids, err := assignedRepo.GetAssignedUser()
 	if err != nil {
-		http.Error(w, "Error assigned user", http.StatusInternalServerError)
+		errorMessage := usersPackage.ErrorResponse{ErrorType: "Error while getting assigned users", Error: err.Error()}
+		json.NewEncoder(w).Encode(errorMessage)
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
-	json.NewEncoder(w).Encode(usersId)
+	err = json.NewEncoder(w).Encode(ids)
+	if err != nil {
+		errorMessage := usersPackage.ErrorResponse{ErrorType: "Error while encode assigned users", Error: err.Error()}
+		json.NewEncoder(w).Encode(errorMessage)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -254,88 +326,116 @@ func getCategories(w http.ResponseWriter, r *http.Request) {
 	category := bookPackage.NewBookService(*bookRepo)
 	categories, err := category.GetCategories()
 	if err != nil {
-		http.Error(w, "Error getting categories: "+err.Error(), http.StatusInternalServerError)
+		errorMessage := bookPackage.ErrorResponse{ErrorType: "Error while getting categories", Error: err.Error()}
+		json.NewEncoder(w).Encode(errorMessage)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	err = json.NewEncoder(w).Encode(categories)
 	if err != nil {
-		http.Error(w, "Error encoding categories: "+err.Error(), http.StatusInternalServerError)
+		errorMessage := bookPackage.ErrorResponse{ErrorType: "Error while encode categories", Error: err.Error()}
+		json.NewEncoder(w).Encode(errorMessage)
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func getBookByCategories(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
+	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	v := r.FormValue("category")
 
-	var req bookPackage.CategoryRequest
-	err := json.NewDecoder(r.Body).Decode(&req)
+	err, categoryId := bookPackage.ValidGetBookByCategory(v)
 	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		errorMessage := bookPackage.ErrorResponse{ErrorType: "Error while validate categories", Error: err.Error()}
+		json.NewEncoder(w).Encode(errorMessage)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+
 	bookRepo := bookPackage.NewBookRepository(DbConnect())
 	getBookByCategoryService := bookPackage.NewBookService(*bookRepo)
-	books, err := getBookByCategoryService.GetBookByCategories(req)
+	books, err := getBookByCategoryService.GetBookByCategories(categoryId)
 	if err != nil {
-		http.Error(w, "Error getting books: "+err.Error(), http.StatusBadRequest)
+		errorMessage := bookPackage.ErrorResponse{ErrorType: "Error while getting book by category", Error: err.Error()}
+		json.NewEncoder(w).Encode(errorMessage)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	if err = json.NewEncoder(w).Encode(books); err != nil {
-		http.Error(w, "Error encoding books: "+err.Error(), http.StatusInternalServerError)
+		errorMessage := bookPackage.ErrorResponse{ErrorType: "Error while encode book by category", Error: err.Error()}
+		json.NewEncoder(w).Encode(errorMessage)
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 	w.WriteHeader(http.StatusOK)
-
 }
 
 func getBookByBookName(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
+	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	var req bookPackage.NameRequest
-	err := json.NewDecoder(r.Body).Decode(&req)
+	v := r.FormValue("name")
+	err := bookPackage.ValidGetBookByBookName(v)
 	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		errorMessage := bookPackage.ErrorResponse{ErrorType: "Error while validate book name", Error: err.Error()}
+		json.NewEncoder(w).Encode(errorMessage)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	bookRepo := bookPackage.NewBookRepository(DbConnect())
+	getBookByNameService := bookPackage.NewBookService(*bookRepo)
+	books, err := getBookByNameService.GetBookByBookName(v)
+	if err != nil {
+		errorMessage := bookPackage.ErrorResponse{ErrorType: "Error while getting book by name", Error: err.Error()}
+		json.NewEncoder(w).Encode(errorMessage)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	bookRepo := bookPackage.NewBookRepository(DbConnect())
-	getBookByNameService := bookPackage.NewBookService(*bookRepo)
-	books, err := getBookByNameService.GetBookByBookName(req)
+	err = json.NewEncoder(w).Encode(books)
 	if err != nil {
-		http.Error(w, "Failed to get book: "+err.Error(), http.StatusBadRequest)
+		errorMessage := bookPackage.ErrorResponse{ErrorType: "Error while encode book by name", Error: err.Error()}
+		json.NewEncoder(w).Encode(errorMessage)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(books)
-	if err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-		return
-	}
 }
 
 func getUserById(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
+	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	var req usersPackage.IdRequest
-	err := json.NewDecoder(r.Body).Decode(&req)
+	v, err := strconv.Atoi(r.FormValue("user_id"))
 	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		errorMessage := bookPackage.ErrorResponse{ErrorType: "Error while convert user id", Error: err.Error()}
+		json.NewEncoder(w).Encode(errorMessage)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	userRepo := usersPackage.NewUserRepository(DbConnect())
 	getBookByIdService := usersPackage.NewUserService(*userRepo)
-	user, err := getBookByIdService.GetUserById(req)
+	user, err := getBookByIdService.GetUserById(v)
+	if err != nil {
+		errorMessage := usersPackage.ErrorResponse{ErrorType: "Error while getting user id", Error: err.Error()}
+		json.NewEncoder(w).Encode(errorMessage)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	err = json.NewEncoder(w).Encode(user)
 	if err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		errorMessage := usersPackage.ErrorResponse{ErrorType: "Error while encode user id", Error: err.Error()}
+		json.NewEncoder(w).Encode(errorMessage)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -343,22 +443,27 @@ func getUserById(w http.ResponseWriter, r *http.Request) {
 }
 
 func getBookByIsbn(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
+	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 
-	var req bookPackage.IsbnRequest
-	err := json.NewDecoder(r.Body).Decode(&req)
+	v := r.FormValue("isbn")
+	err := bookPackage.ValidGetBookByIsbnRequest(v)
 	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		errorMessage := bookPackage.ErrorResponse{ErrorType: "Error while validate isbn", Error: err.Error()}
+		json.NewEncoder(w).Encode(errorMessage)
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 
 	bookRepo := bookPackage.NewBookRepository(DbConnect())
 	getBookByIsbnService := bookPackage.NewBookService(*bookRepo)
-	book, err := getBookByIsbnService.GetBookByIsbn(req)
+	book, err := getBookByIsbnService.GetBookByIsbn(v)
 	err = json.NewEncoder(w).Encode(book)
 	if err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		errorMessage := bookPackage.ErrorResponse{ErrorType: "Error while encode book by isbn", Error: err.Error()}
+		json.NewEncoder(w).Encode(errorMessage)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	w.WriteHeader(http.StatusOK)

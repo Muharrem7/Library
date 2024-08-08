@@ -27,17 +27,17 @@ func (bs *BookService) InsertAssigne(userId int, bookId int) error {
 func (bs *BookService) GetAssignedBook() ([]Assignments, error) {
 	return bs.bookRepo.GetAssignedBook()
 }
-func (bs *BookService) GetBookByCategories(req CategoryRequest) ([]Book, error) {
+func (bs *BookService) GetBookByCategories(req int) ([]Book, error) {
 	return bs.bookRepo.GetBookByCategories(req)
 
 }
-func (bs *BookService) GetBookByBookName(req NameRequest) ([]Book, error) {
+func (bs *BookService) GetBookByBookName(req string) ([]Book, error) {
 	return bs.bookRepo.GetBookByBookName(req)
 
 }
 func (bs *BookService) GetCategories() ([]string, error) {
 	return bs.bookRepo.GetCategories()
 }
-func (bs *BookService) GetBookByIsbn(req IsbnRequest) ([]Book, error) {
+func (bs *BookService) GetBookByIsbn(req string) ([]Book, error) {
 	return bs.bookRepo.GetBooksByIsbn(req)
 }

@@ -17,9 +17,7 @@ func (us *UserService) InsertUser(user User) error {
 }
 
 func (us *UserService) GetUsers() ([]User, error) {
-
 	return us.userRepo.GetUsers()
-
 }
 func (us *UserService) GetUserIdById(req Book.AssignRequest) (int, error) {
 	return us.userRepo.GetUserIdById(req)
@@ -29,6 +27,6 @@ func (us *UserService) GetAssignedUser() ([]Assignments, error) {
 	return us.userRepo.GetAssignedUser()
 
 }
-func (us *UserService) GetUserById(req IdRequest) ([]User, error) {
+func (us *UserService) GetUserById(req int) ([]User, error) {
 	return us.userRepo.GetUserById(req)
 }

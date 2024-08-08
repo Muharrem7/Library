@@ -99,6 +99,7 @@ func (bo *BookRepository) InsertAssigne(userId int, bookId int) error {
 	return nil
 
 }
+
 func (bo *BookRepository) GetAssignedBook() ([]Assignments, error) {
 	rows, err := bo.db.Query("SELECT  book_id, user_id FROM assignments ")
 	if err != nil {
@@ -117,12 +118,12 @@ func (bo *BookRepository) GetAssignedBook() ([]Assignments, error) {
 	return books, nil
 }
 
-func (bo *BookRepository) GetBookByCategories(req CategoryRequest) ([]Book, error) {
-	getCategoryId, err := bo.GetCategory(req)
-	if err != nil {
-		return nil, fmt.Errorf("Error getting request: %v", err)
-	}
-	rows, err := bo.db.Query("Select * From books where category_id = ? ", getCategoryId)
+func (bo *BookRepository) GetBookByCategories(req int) ([]Book, error) {
+	//getCategoryId, err := bo.GetCategory(req)
+	//if err != nil {
+	//	return nil, fmt.Errorf("Error getting request: %v", err)
+	//}
+	rows, err := bo.db.Query("Select * From books where category_id = ? ", req)
 	if err != nil {
 		return nil, fmt.Errorf("Error while querying book: %v", err)
 	}
@@ -140,8 +141,8 @@ func (bo *BookRepository) GetBookByCategories(req CategoryRequest) ([]Book, erro
 	return books, nil
 }
 
-func (bo *BookRepository) GetBookByBookName(req NameRequest) ([]Book, error) {
-	name := req.Name
+func (bo *BookRepository) GetBookByBookName(req string) ([]Book, error) {
+	name := req
 	rows, err := bo.db.Query("select * from books where name = ? ", name)
 	if err != nil {
 		return nil, fmt.Errorf("Error while querying book: %v", err)
@@ -162,6 +163,7 @@ func (bo *BookRepository) GetBookByBookName(req NameRequest) ([]Book, error) {
 	return books, nil
 
 }
+
 func (bo *BookRepository) GetCategories() ([]string, error) {
 	rows, err := bo.db.Query("select name from categories")
 	if err != nil {
@@ -180,8 +182,9 @@ func (bo *BookRepository) GetCategories() ([]string, error) {
 	}
 	return categories, nil
 }
-func (bo *BookRepository) GetBooksByIsbn(req IsbnRequest) ([]Book, error) {
-	isbn := req.Isbn
+
+func (bo *BookRepository) GetBooksByIsbn(req string) ([]Book, error) {
+	isbn := req
 	rows, err := bo.db.Query("Select * from Books where isbn = ?", isbn)
 	if err != nil {
 		return nil, fmt.Errorf("Error while querying book: %v", err)
