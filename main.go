@@ -20,8 +20,8 @@ var newUser usersPackage.User
 var newBook bookPackage.Book
 
 const (
-	username = "root"
-	password = "Smorkan2"
+	username = ""
+	password = ""
 	hostname = "127.0.0.1:3306"
 )
 
