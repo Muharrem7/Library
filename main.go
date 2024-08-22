@@ -11,10 +11,6 @@ import (
 	"strconv"
 )
 
-// TODO boş geçemez = OK
-//TODO  düzgün insert yapılmadıysa cevap dönmesin = OK
-// TODO endpoint isimlerini düzelt
-// TODO kategorlileri validasyon için kodda tut = OK
 
 var newUser usersPackage.User
 var newBook bookPackage.Book
@@ -42,17 +38,17 @@ func main() {
 
 	http.HandleFunc("/user", insertUser)
 	http.HandleFunc("/users", getUsers)
-	http.HandleFunc("/users/", getUserById)            // TODO /users/{id} = OK
-	http.HandleFunc("/users/assign", getAssignedUsers) // TODO birde bir kitabı aynı kullanıcıya bir daha ataymazsın onu kontrol et. ok // users/{id}/books
+	http.HandleFunc("/users/", getUserById)           
+	http.HandleFunc("/users/assign", getAssignedUsers) 
 
 	http.HandleFunc("/book", insertBook)
 	http.HandleFunc("/books", getBooks)
 	http.HandleFunc("/books/assign", insertAssign)
-	http.HandleFunc("/books/name", getBookByBookName)          //TODO buna gerek yok, /books a taşı URL Parameter
-	http.HandleFunc("/books/isbn", getBookByIsbn)              //TODO  GET /book/{isbn} --> /books/1204 = OK
-	http.HandleFunc("/books/categories", getCategories)        // TODO /books/categories = OK
-	http.HandleFunc("/books/categories/", getBookByCategories) // TODO buna gerek yok, /books a taşı URL Parameter, TODO books olacak /books?category=roman  = OK
-	http.HandleFunc("/books/assigned", getAssignedBooks)       // TODO book id ye göre filtreke, user id leri döndür. ok,        books/{id}/users
+	http.HandleFunc("/books/name", getBookByBookName)          
+	http.HandleFunc("/books/isbn", getBookByIsbn)              
+	http.HandleFunc("/books/categories", getCategories)        
+	http.HandleFunc("/books/categories/", getBookByCategories) 
+	http.HandleFunc("/books/assigned", getAssignedBooks)       
 
 	fmt.Println("Listening on port 8080")
 	err := http.ListenAndServe(":8080", nil)
